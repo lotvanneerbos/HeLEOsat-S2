@@ -66,12 +66,17 @@ def save_filtered_cloud_height_tif(npz_path, classification_npy_path, reference_
     rgb_shape = (10980, 10980)
     nrows, ncols = rgb_shape
 
-    # Interpolate Asterisk heights onto full grid (nearest neighbour)
+    # Interpolate Asterisk heights onto full grid (k=3 nearest-neighbour MEAN)
     grid_y, grid_x = np.meshgrid(np.arange(nrows), np.arange(ncols), indexing="ij")
     grid_coords = np.stack([grid_x.ravel() * pixel_size, grid_y.ravel() * pixel_size], axis=1)
     tree_pts = cKDTree(coords)
-    _, nn_idx = tree_pts.query(grid_coords)
-    cloud_height_raster = heights[nn_idx].reshape(rgb_shape)
+    k = int(min(3, coords.shape[0]))
+    dist, idx = tree_pts.query(grid_coords, k=k)
+    if k == 1:
+        # ensure 2D for consistent mean over axis=1
+        idx = idx[:, None]
+    neighbor_vals = heights[idx]  # shape: (n_pixels, k)
+    cloud_height_raster = neighbor_vals.mean(axis=1).astype(heights.dtype).reshape(rgb_shape)
 
     # Resize classification mask to 10 m
     factor_y = nrows / classification_mask.shape[0]
@@ -91,15 +96,15 @@ def save_filtered_cloud_height_tif(npz_path, classification_npy_path, reference_
         src_pts = np.column_stack([src_r, src_c])
         tgt_pts = np.column_stack([tgt_r, tgt_c])
         kdt = cKDTree(src_pts)
-        k = int(min(3, src_pts.shape[0]))
-        dist, idx = kdt.query(tgt_pts, k=k)
+        k2 = int(min(3, src_pts.shape[0]))
+        dist2, idx2 = kdt.query(tgt_pts, k=k2)
 
-        if k == 1:
-            idx = idx[:, None]
+        if k2 == 1:
+            idx2 = idx2[:, None]
 
         src_heights_1d = cloud_height_raster[src_r, src_c]
-        neighbor_vals = src_heights_1d[idx]
-        filled_vals = neighbor_vals.mean(axis=1).astype(cloud_height_raster.dtype)
+        neighbor_vals2 = src_heights_1d[idx2]
+        filled_vals = neighbor_vals2.mean(axis=1).astype(cloud_height_raster.dtype)
 
         cloud_height_raster[tgt_r, tgt_c] = filled_vals
 
