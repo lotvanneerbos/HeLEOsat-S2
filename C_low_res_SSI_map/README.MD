@@ -17,7 +17,7 @@ Produce coarse/low-resolution SSI/GHI maps that are **aligned** to the Sentinel-
 
 ---
 
-### C.1 — Generate low-res SSI/GHI maps (consume A.3/A.4 outputs)
+### C.1 — Generate low-res SSI/GHI maps 
 - For each S2 scene, read **SENSING_TIME** (round to minute).  
 - Extract **GHI** from the CAMS CSVs at that minute using the MSG pixel list (`msg_pixel_coords_{site}.csv`).  
 - **Map CAMS → S2 pixels** using:
